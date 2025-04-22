@@ -1,4 +1,4 @@
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, T5ForConditionalGeneration
 import torch
 from app.core.vector_store import VectorStore
 from app.models.query import QueryResponse
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class RAGEngine:
     def __init__(self):
         self.vector_store = VectorStore()
-        self.model_name = "mistralai/Mistral-7B-Instruct-v0.2"
+        self.model_name = "google/flan-t5-base"  # Changed to public model
         self.device = os.getenv("MODEL_DEVICE", "cpu")
         self.max_input_tokens = 4096
         self._load_model()
@@ -28,7 +28,7 @@ class RAGEngine:
                 torch.cuda.empty_cache()
             
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-            self.model = AutoModelForCausalLM.from_pretrained(
+            self.model = T5ForConditionalGeneration.from_pretrained(
                 self.model_name,
                 torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
                 device_map="auto" if self.device == "cuda" else None,
@@ -85,15 +85,18 @@ Answer:"""
 
             try:
                 # Generate response
-                inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
+                # T5 expects a more straightforward input format
+                inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=self.max_input_tokens).to(self.device)
                 
                 with torch.inference_mode():
                     outputs = self.model.generate(
                         **inputs,
-                        max_length=self.max_input_tokens + 512,  # Allow for response
+                        max_length=512,  # T5 doesn't need the input length added here
                         temperature=0.7,
                         top_p=0.95,
-                        do_sample=True
+                        do_sample=True,
+                        num_beams=4,  # Adding beam search for better quality
+                        early_stopping=True
                     )
                 
                 answer = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
