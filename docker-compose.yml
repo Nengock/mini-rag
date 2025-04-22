@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        - DEVICE=${MODEL_DEVICE:-cpu}  # Use GPU if available
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - pdf_uploads:/app/uploads
+      - vector_indices:/app/vector_indices
+    environment:
+      - PYTHONUNBUFFERED=1
+      - MODEL_DEVICE=${MODEL_DEVICE:-cpu}
+      - TORCH_THREADS=${TORCH_THREADS:-4}
+      - MAX_UPLOAD_SIZE=${MAX_UPLOAD_SIZE:-10485760}
+      - MAX_PAGES=${MAX_PAGES:-1000}
+      - CHUNK_SIZE=${CHUNK_SIZE:-1000}
+      - CHUNK_OVERLAP=${CHUNK_OVERLAP:-200}
+      - CONTEXT_WINDOW=${CONTEXT_WINDOW:-4096}
+      - MAX_RETRIES=${MAX_RETRIES:-3}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  pdf_uploads:
+  vector_indices:

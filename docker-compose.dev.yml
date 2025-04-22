@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        - DEVICE=${MODEL_DEVICE:-cpu}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ./backend:/app
+      - pdf_uploads:/app/uploads
+      - vector_indices:/app/vector_indices
+    environment:
+      - PYTHONUNBUFFERED=1
+      - MODEL_DEVICE=${MODEL_DEVICE:-cpu}
+      - TORCH_THREADS=${TORCH_THREADS:-4}
+      - MAX_UPLOAD_SIZE=${MAX_UPLOAD_SIZE:-20971520}
+      - MAX_PAGES=${MAX_PAGES:-2000}
+      - CHUNK_SIZE=${CHUNK_SIZE:-1000}
+      - CHUNK_OVERLAP=${CHUNK_OVERLAP:-200}
+      - CONTEXT_WINDOW=${CONTEXT_WINDOW:-4096}
+      - MAX_RETRIES=${MAX_RETRIES:-3}
+      - DEBUG=${DEBUG:-1}
+      - LOG_LEVEL=${LOG_LEVEL:-DEBUG}
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8000/api}
+      - VITE_HMR=${VITE_HMR:-true}
+      - WATCHFILES_FORCE_POLLING=${WATCHFILES_FORCE_POLLING:-true}
+    command: npm run dev
+    depends_on:
+      - backend
+
+volumes:
+  pdf_uploads:
+  vector_indices:
