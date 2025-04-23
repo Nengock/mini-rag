@@ -128,15 +128,19 @@ Answer:"""
             confidence = min(1.0, (len(context_texts) / 5) * (1 - avg_similarity/2))
             
             return QueryResponse(
+                query=question,
                 answer=answer,
-                context=context_texts,
-                confidence=confidence,
+                sources=[{
+                    'text': text,
+                    'similarity_score': chunk.metadata.get('similarity_score', 0)
+                } for text, chunk in zip(context_texts, relevant_chunks[:len(context_texts)])],
                 metadata={
                     "model": self.model_name,
                     "chunks_used": len(context_texts),
                     "total_tokens": total_tokens,
                     "context_window": self.max_input_tokens,
                     "device": self.device,
+                    "confidence": confidence,
                     "avg_similarity_score": float(avg_similarity)
                 }
             )
