@@ -7,15 +7,20 @@ interface Props {
 }
 
 interface QueryResult {
+  query: string
   answer: string
-  context: string[]
-  confidence: number
-  metadata?: {
+  sources: Array<{
+    text: string
+    similarity_score: number
+  }>
+  metadata: {
     model: string
     chunks_used: number
     total_tokens: number
     context_window: number
     device: string
+    confidence: number
+    avg_similarity_score: number
   }
 }
 
@@ -160,23 +165,25 @@ const QueryInterface = ({ documentId }: Props) => {
           
           <div>
             <h3 className="text-lg font-semibold mb-2">Relevant Context:</h3>
-            <div className="bg-gray-50 p-4 rounded-md space-y-2">
-              {result.context.map((text, index) => (
-                <p key={index} className="text-sm text-gray-600">{text}</p>
+            <div className="bg-gray-50 p-4 rounded-md space-y-4">
+              {result.sources.map((source, index) => (
+                <div key={index} className="p-3 border border-gray-200 rounded">
+                  <p className="text-sm text-gray-600">{source.text}</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Relevance Score: {(1 - source.similarity_score).toFixed(3)}
+                  </p>
+                </div>
               ))}
             </div>
           </div>
           
           <div className="mt-4 text-sm text-gray-500 space-y-1">
-            <div>Confidence Score: {(result.confidence * 100).toFixed(1)}%</div>
-            {result.metadata && (
-              <>
-                <div>Model: {result.metadata.model}</div>
-                <div>Chunks Used: {result.metadata.chunks_used}</div>
-                <div>Total Tokens: {result.metadata.total_tokens}</div>
-                <div>Device: {result.metadata.device}</div>
-              </>
-            )}
+            <div>Confidence Score: {(result.metadata.confidence * 100).toFixed(1)}%</div>
+            <div>Model: {result.metadata.model}</div>
+            <div>Chunks Used: {result.metadata.chunks_used}</div>
+            <div>Total Tokens: {result.metadata.total_tokens}</div>
+            <div>Device: {result.metadata.device}</div>
+            <div>Average Similarity Score: {(1 - result.metadata.avg_similarity_score).toFixed(3)}</div>
           </div>
         </div>
       )}
